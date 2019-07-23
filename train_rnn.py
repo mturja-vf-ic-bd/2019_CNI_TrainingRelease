@@ -86,7 +86,7 @@ def train(epoch, train_idx):
     #       'time: {:.4f}s'.format(time.time() - t))
 
 
-def test(idx_test):
+def model_test(idx_test):
     model.eval()
     output = model(data[idx_test])
     acc = accuracy(output.cpu().data, label[idx_test].cpu().data)
@@ -102,8 +102,8 @@ for i in range(len(test_idx)):
     model.reset_parameters()
     for epoch in range(args.epochs):
         train(epoch, train_idx[i])
-    test(train_idx[i])
-    acc.append(test(test_idx[i]))
+    model_test(train_idx[i])
+    acc.append(model_test(test_idx[i]))
 
 print("Optimization Finished!")
 print("Total time elapsed: {:.4f}s".format(time.time() - t_total))

@@ -1,6 +1,6 @@
 from numpy import genfromtxt
 from args import Args
-from util import plot_matrix, process_matrix, get_train_test_fold, plot_signal, plot_spectogram
+from util import plot_matrix, process_matrix, get_train_test_fold, plot_signal, plot_spectogram, get_spectogram
 import numpy as np
 from numpy.linalg import matrix_power
 from numpy import corrcoef
@@ -60,8 +60,9 @@ def parse_data_class(class_id, parc):
         print("{} shape: {}".format(id, single_data.shape))
         single_data -= single_data.mean(axis=1, keepdims=True)
         single_data /= single_data.std(axis=1, keepdims=True)
+        single_data = get_spectogram(single_data)
         if i == 0:
-            data = np.zeros((len(dict_class[class_id]), single_data.shape[0], single_data.shape[1]))
+            data = np.zeros((len(dict_class[class_id]), single_data.shape[0], single_data.shape[1], single_data.shape[2]))
         data[i] = single_data
     return np.array(data), np.array(label)
 
@@ -73,7 +74,7 @@ def load_data(parc):
 
 
 if __name__ == '__main__':
-    subject = 'sub-044'
+    subject = 'sub-180'
     parc = 'All'
     data = parse_data(subject, parc)
 

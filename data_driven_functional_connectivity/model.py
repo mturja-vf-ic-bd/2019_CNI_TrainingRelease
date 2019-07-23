@@ -31,6 +31,10 @@ class NodeRNN(nn.Module):
         self.n_hidden = n_hidden
         self.conv_1 = nn.Conv1d(n_nodes, n_nodes, kernel_size, 1)
         self.conv_2 = nn.Conv1d(n_nodes, n_nodes, kernel_size, 2)
+        self.conv_1_2d = nn.Conv2d(n_nodes, n_nodes, 3)
+        self.maxpool_1_2d = nn.MaxPool2d(3, stride=3)
+        self.conv_2_2d = nn.Conv2d(n_nodes, n_nodes, 3)
+        self.maxpool_2_2d = nn.MaxPool2d(3, stride=3)
         self.maxpool = nn.MaxPool1d(4, stride=4)
         self.gru = nn.GRU(17, n_hidden, n_layer,
                           bidirectional=True, batch_first=True)
@@ -38,9 +42,14 @@ class NodeRNN(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, in_sig):
-        out = self.conv_1(in_sig)
-        out = self.conv_2(out)
-        out = self.maxpool(out)
+        # out = self.conv_1(in_sig)
+        # out = self.conv_2(out)
+        # out = self.maxpool(out)
+        out = self.conv_1_2d(in_sig)
+        out = self.maxpool_1_2d(out)
+        out = out.squeeze()
+        # out = self.conv_2_2d(out)
+        # out = self.maxpool_2_2d(out)
         out, h = self.gru(out)
         out = torch.cat((out[:, -1, :self.n_hidden], out[:, 0, self.n_hidden:]), 1)
         out = self.sigmoid(self.dense(out))

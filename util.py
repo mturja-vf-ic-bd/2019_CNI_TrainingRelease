@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from scipy import signal
+import warnings
 
 
 def plot_signal(X):
@@ -50,12 +51,19 @@ def accuracy(output, y_true):
 
 def get_spectogram(sig):
     fr = 1
-    f, t, Sxx = signal.spectrogram(sig, fr, nperseg=5, noverlap=2)
-    return f, t
+    sig_spec = []
+    for i in range(len(sig)):
+        f, t, Sxx = signal.spectrogram(sig[i, :], fr, nperseg=5, noverlap=2)
+        sig_spec.append(Sxx)
+    sig_spec = np.array(sig_spec)
+    if sig_spec.shape != (428, 3, 51):
+        warnings.warn("Bad shape: {}".format(sig_spec.shape))
+    return sig_spec
+
 
 def plot_spectogram(sig):
     fr = 1
-    f, t, Sxx = signal.spectrogram(sig, fr, nperseg=8, noverlap=3)
+    f, t, Sxx = signal.spectrogram(sig, fr, nperseg=5, noverlap=2)
     plt.pcolormesh(t, f, Sxx)
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
