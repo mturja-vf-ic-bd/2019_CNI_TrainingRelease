@@ -30,22 +30,26 @@ class FCModel(nn.Module):
 
 class NodeConv(nn.Module):
     def __init__(self, channel_seq=[116, 20, 10],
-                 kernel_size=5, dropout=0.5):
+                 kernel_size=5, dropout=0.5, sigmoid=False):
         super(NodeConv, self).__init__()
         list_of_layer = []
         for i in range(1, len(channel_seq)):
-            list_of_layer.append(
-                nn.Sequential(
-                    nn.Conv1d(channel_seq[i - 1], channel_seq[i], kernel_size, 1),
-                    nn.MaxPool1d(kernel_size),
-                    nn.LeakyReLU(0.1),
-                    nn.Dropout(dropout),
-                    nn.BatchNorm1d(channel_seq[i])
+            if i < len(channel_seq) - 1:
+                list_of_layer.append(
+                    nn.Sequential(
+                        nn.Conv1d(channel_seq[i - 1], channel_seq[i], kernel_size, 1),
+                        nn.MaxPool1d(kernel_size),
+                        nn.LeakyReLU(0.1),
+                        nn.Dropout(dropout),
+                        nn.BatchNorm1d(channel_seq[i])
+                    )
                 )
-            )
+            else:
+                list_of_layer.append(nn.Conv1d(channel_seq[i - 1], channel_seq[i], kernel_size, 1))
         self.kernel_size = kernel_size
         self.conv1d = nn.Sequential(*list_of_layer)
         self.sigmoid = nn.Sigmoid()
+        self.sigm = sigmoid
 
     def forward(self, in_sig):
         for i, layer in enumerate(self.conv1d):
@@ -53,7 +57,8 @@ class NodeConv(nn.Module):
                 out = layer(in_sig)
             else:
                 out = layer(out)
-        # out = self.sigmoid(out.view(-1, 1))
+        if self.sigm:
+            out = self.sigmoid(out.view(-1, 1))
         return out
 
     def reset_parameters(self):
@@ -62,12 +67,56 @@ class NodeConv(nn.Module):
                 layer.reset_parameters()
 
 
+class NodeDeConv(nn.Module):
+    def __init__(self, channel_seq, kernel_size, stride, dropout):
+        super(NodeDeConv, self).__init__()
+        list_of_layer = []
+        for i in range(1, len(channel_seq)):
+            if i < len(channel_seq) - 1:
+                list_of_layer.append(
+                    nn.Sequential(
+                        nn.ConvTranspose1d(channel_seq[i - 1], channel_seq[i], kernel_size=kernel_size, stride=stride[i-1], output_padding=1),
+                        nn.LeakyReLU(0.1),
+                        nn.Dropout(dropout),
+                        nn.BatchNorm1d(channel_seq[i])
+                    )
+                )
+            else:
+                list_of_layer.append(
+                    nn.Sequential(
+                        nn.ConvTranspose1d(channel_seq[i - 1], channel_seq[i], kernel_size=kernel_size, stride=stride[i-1], output_padding=1)
+                    )
+                )
+        self.deconv1d = nn.Sequential(*list_of_layer)
+
+    def forward(self, input):
+        return self.deconv1d(input)
+
+    def reset_parameters(self):
+        for layer in self.conv1d:
+            if isinstance(layer, nn.ConvTranspose1d) or isinstance(layer, nn.BatchNorm1d):
+                layer.reset_parameters()
+
+
+class SAE(nn.Module):
+    def __init__(self, conv_seq, conv_kernel, deconv_seq, deconv_kernel, deconv_stride, dropout):
+        super(SAE, self).__init__()
+        self.conv = NodeConv(conv_seq, conv_kernel, dropout)
+        self.deconv = NodeDeConv(deconv_seq, deconv_kernel, deconv_stride, dropout)
+
+    def forward(self, input):
+        out = self.conv(input)
+        out = self.deconv(out)
+        return out
+
+
 class NodeRNN(nn.Module):
     def __init__(self, feat_dim, conv1d_layers, n_hidden, n_layer,
                  kernel_size, dropout):
         super(NodeRNN, self).__init__()
-        for i in range(len(conv1d_layers) - 1):
+        for i in range(len(conv1d_layers) - 2):
             feat_dim = (feat_dim - (kernel_size - 1)) // kernel_size
+        feat_dim = feat_dim - (kernel_size - 1)
         self.n_hidden = n_hidden
         self.conv1d = NodeConv(conv1d_layers, kernel_size, dropout)
         self.gru = nn.GRU(feat_dim, n_hidden, n_layer,
