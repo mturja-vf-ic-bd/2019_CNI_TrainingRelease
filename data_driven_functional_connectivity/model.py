@@ -73,7 +73,7 @@ class NodeConv(nn.Module):
 
     def reset_parameters(self):
         for layer in self.conv1d:
-            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.BatchNorm1d):
+            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.BatchNorm2d):
                 layer.reset_parameters()
 
 
