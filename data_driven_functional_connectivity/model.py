@@ -33,19 +33,29 @@ class NodeConv(nn.Module):
                  kernel_size=5, dropout=0.5, sigmoid=False):
         super(NodeConv, self).__init__()
         list_of_layer = []
-        for i in range(1, len(channel_seq)):
-            if i < len(channel_seq) - 1:
+        for i in range(0, len(channel_seq)):
+            if i == 0:
                 list_of_layer.append(
                     nn.Sequential(
-                        nn.Conv1d(channel_seq[i - 1], channel_seq[i], kernel_size, 1),
-                        nn.MaxPool1d(kernel_size),
+                        nn.Conv2d(1, channel_seq[i], (1, kernel_size), 1),
+                        nn.MaxPool2d((1, kernel_size), stride=(1, kernel_size)),
                         nn.LeakyReLU(0.1),
                         nn.Dropout(dropout),
-                        nn.BatchNorm1d(channel_seq[i])
+                        nn.BatchNorm2d(channel_seq[i])
+                    )
+                )
+            elif i < len(channel_seq) - 1:
+                list_of_layer.append(
+                    nn.Sequential(
+                        nn.Conv2d(channel_seq[i - 1], channel_seq[i], (1, kernel_size), 1),
+                        nn.MaxPool2d((1, kernel_size), stride=(1, kernel_size)),
+                        nn.LeakyReLU(0.1),
+                        nn.Dropout(dropout),
+                        nn.BatchNorm2d(channel_seq[i])
                     )
                 )
             else:
-                list_of_layer.append(nn.Conv1d(channel_seq[i - 1], channel_seq[i], kernel_size, 1))
+                list_of_layer.append(nn.Conv2d(channel_seq[i - 1], channel_seq[i], (1, kernel_size), 1))
         self.kernel_size = kernel_size
         self.conv1d = nn.Sequential(*list_of_layer)
         self.sigmoid = nn.Sigmoid()
@@ -59,11 +69,11 @@ class NodeConv(nn.Module):
                 out = layer(out)
         if self.sigm:
             out = self.sigmoid(out.view(-1, 1))
-        return out
+        return out.squeeze()
 
     def reset_parameters(self):
         for layer in self.conv1d:
-            if isinstance(layer, nn.Conv1d) or isinstance(layer, nn.BatchNorm1d):
+            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.BatchNorm1d):
                 layer.reset_parameters()
 
 
@@ -114,9 +124,9 @@ class NodeRNN(nn.Module):
     def __init__(self, feat_dim, conv1d_layers, n_hidden, n_layer,
                  kernel_size, dropout):
         super(NodeRNN, self).__init__()
-        for i in range(len(conv1d_layers) - 2):
-            feat_dim = (feat_dim - (kernel_size - 1)) // kernel_size
-        feat_dim = feat_dim - (kernel_size - 1)
+        for i in range(len(conv1d_layers) - 1):
+            feat_dim = (feat_dim - kernel_size + 1) // kernel_size
+        feat_dim = feat_dim - kernel_size + 1
         self.n_hidden = n_hidden
         self.conv1d = NodeConv(conv1d_layers, kernel_size, dropout)
         self.gru = nn.GRU(feat_dim, n_hidden, n_layer,

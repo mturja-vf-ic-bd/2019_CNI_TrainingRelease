@@ -19,17 +19,17 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=10000,
+parser.add_argument('--epochs', type=int, default=100,
                     help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.001,
+parser.add_argument('--lr', type=float, default=0.0005,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4,
                     help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--hidden', type=int, default=128,
                     help='Number of hidden units.')
-parser.add_argument('--dropout', type=float, default=0.6,
+parser.add_argument('--dropout', type=float, default=0.5,
                     help='Dropout rate (1 - keep probability).')
-parser.add_argument('--kernel_size', type=int, default=10,
+parser.add_argument('--kernel_size', type=int, default=3,
                     help='kernel size in 1d conv layer')
 
 args = parser.parse_args()
@@ -40,15 +40,17 @@ torch.manual_seed(args.seed)
 
 # Load data
 data, label, train_idx, test_idx = load_data('aal')
-data = torch.FloatTensor(data)
+data = torch.FloatTensor(data).unsqueeze(1)
 label = torch.FloatTensor(label).view(-1, 1)
 train_idx = torch.LongTensor(train_idx)
 test_idx = torch.LongTensor(test_idx)
 
 # Model and optimizer
-#model = NodeRNN(data.size(2), [data.size(1), 50], args.hidden, 1, args.kernel_size, args.dropout)
-#model = NodeConv([data.size(1), 30, 5, 1], kernel_size=5, dropout=args.dropout, sigmoid=True)
-model = SAE(conv_seq=[data.size(1), 50, 20], conv_kernel=10, deconv_seq=[20, 50, data.size(1)], deconv_kernel=5, deconv_stride=[5, 6], dropout=0.6)
+model = NodeRNN(data.size(3), [30, 20, 1], args.hidden, 1, args.kernel_size, args.dropout)
+# model = NodeConv([data.size(1), 30, 5, 1], kernel_size=5, dropout=args.dropout, sigmoid=True)
+# model = SAE(conv_seq=[data.size(1), 50, 20], conv_kernel=10,
+#             deconv_seq=[20, 50, data.size(1)], deconv_kernel=5,
+#             deconv_stride=[5, 6], dropout=0.6)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
@@ -65,16 +67,15 @@ def train(epoch, train_idx, test_idx):
     optimizer.zero_grad()
 
     output = model(data[train_idx])
-    loss_fn = torch.nn.MSELoss()
-    loss = loss_fn(output, data[train_idx])
-    # loss_fn = torch.nn.BCELoss()
-    #loss = loss_fn(output, label[train_idx])
+    # loss_fn = torch.nn.MSELoss()
+    # loss = loss_fn(output, data[train_idx])
+    loss_fn = torch.nn.BCELoss()
+    loss = loss_fn(output, label[train_idx])
     loss.backward()
     optimizer.step()
     if epoch%5 == 0:
         print('epoch: {},  loss: {}'.format(epoch, loss.data))
-    return loss.data
-    # return tst_rnn(train_idx), tst_rnn(test_idx)
+    return tst_rnn(train_idx), tst_rnn(test_idx)
 
     # if not args.fastmode:
     #     # Evaluate validation set performance separately,
@@ -112,27 +113,24 @@ acc = []
 from matplotlib import pyplot as plt
 acc_batch = np.zeros(args.epochs)
 acc_tr = []
-loss = []
 for i in range(len(test_idx)):
     model.apply(weight_init)
     acc_train = []
     acc_test = []
     for epoch in range(args.epochs):
-        loss.append(train(epoch, train_idx[i], test_idx[i]))
-        # a, b = train(epoch, train_idx[i], test_idx[i])
-        # acc_train.append(a)
-        # acc_test.append(b)
+        a, b = train(epoch, train_idx[i], test_idx[i])
+        acc_train.append(a)
+        acc_test.append(b)
 
-    plt.plot(loss)
-    # acc.append(tst_rnn(test_idx[i]))
-    # plt.plot(acc_train, "r-")
-    # plt.plot(acc_test, "b")
+    acc.append(tst_rnn(test_idx[i]))
+    plt.plot(acc_train, "r-")
+    plt.plot(acc_test, "b")
     plt.show()
-    # acc_batch = acc_batch + np.array(acc_test)
-# acc_batch /= len(test_idx)
-# print(acc_batch)
-# plt.plot(acc_batch)
-# plt.show()
+    acc_batch = acc_batch + np.array(acc_test)
+acc_batch /= len(test_idx)
+print(acc_batch)
+plt.plot(acc_batch)
+plt.show()
 
 
 print("Optimization Finished!")
