@@ -85,16 +85,16 @@ class NodeDeConv(nn.Module):
             if i < len(channel_seq) - 1:
                 list_of_layer.append(
                     nn.Sequential(
-                        nn.ConvTranspose1d(channel_seq[i - 1], channel_seq[i], kernel_size=kernel_size, stride=stride[i-1], output_padding=1),
+                        nn.ConvTranspose2d(channel_seq[i - 1], channel_seq[i], kernel_size=(1, kernel_size), stride=stride[i-1], output_padding=1),
                         nn.LeakyReLU(0.1),
                         nn.Dropout(dropout),
-                        nn.BatchNorm1d(channel_seq[i])
+                        nn.BatchNorm2d(channel_seq[i])
                     )
                 )
             else:
                 list_of_layer.append(
                     nn.Sequential(
-                        nn.ConvTranspose1d(channel_seq[i - 1], channel_seq[i], kernel_size=kernel_size, stride=stride[i-1], output_padding=1)
+                        nn.ConvTranspose2d(channel_seq[i - 1], channel_seq[i], kernel_size=(1, kernel_size), stride=stride[i-1], output_padding=1)
                     )
                 )
         self.deconv1d = nn.Sequential(*list_of_layer)
@@ -104,7 +104,7 @@ class NodeDeConv(nn.Module):
 
     def reset_parameters(self):
         for layer in self.conv1d:
-            if isinstance(layer, nn.ConvTranspose1d) or isinstance(layer, nn.BatchNorm1d):
+            if isinstance(layer, nn.ConvTranspose2d) or isinstance(layer, nn.BatchNorm2d):
                 layer.reset_parameters()
 
 
@@ -140,6 +140,7 @@ class NodeRNN(nn.Module):
 
     def forward(self, in_sig):
         out = self.conv1d(in_sig)
+        #out = out.view(out.size(0), -1, 1)
         out, h = self.gru(out)
         out = torch.cat((out[:, -1, :self.n_hidden], out[:, 0, self.n_hidden:]), 1)
         out = self.non_linear(out)

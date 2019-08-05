@@ -10,7 +10,8 @@ import torch.nn as nn
 import time
 from parser import load_data
 from data_driven_functional_connectivity.model import NodeRNN, NodeConv, init_param, SAE
-from util import accuracy
+from util import accuracy, pca_dim_red
+from data_driven_functional_connectivity.AutoEncoder import EncoderRNN
 
 # Training settings
 parser = argparse.ArgumentParser()
@@ -19,15 +20,15 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=100,
+parser.add_argument('--epochs', type=int, default=500,
                     help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.005,
+parser.add_argument('--lr', type=float, default=0.0001,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4,
                     help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=64,
+parser.add_argument('--hidden', type=int, default=512,
                     help='Number of hidden units.')
-parser.add_argument('--dropout', type=float, default=0.5,
+parser.add_argument('--dropout', type=float, default=0.1,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--kernel_size', type=int, default=5,
                     help='kernel size in 1d conv layer')
@@ -40,17 +41,19 @@ torch.manual_seed(args.seed)
 
 # Load data
 data, label, train_idx, test_idx = load_data('aal')
+data = pca_dim_red(data, 30)
 data = torch.FloatTensor(data).unsqueeze(1)
 label = torch.FloatTensor(label).view(-1, 1)
 train_idx = torch.LongTensor(train_idx)
 test_idx = torch.LongTensor(test_idx)
 
 # Model and optimizer
-model = NodeRNN(data.size(3), [10, 1], args.hidden, 1, args.kernel_size, args.dropout)
+# model = NodeRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
 # model = NodeConv([data.size(1), 30, 5, 1], kernel_size=5, dropout=args.dropout, sigmoid=True)
 # model = SAE(conv_seq=[data.size(1), 50, 20], conv_kernel=10,
 #             deconv_seq=[20, 50, data.size(1)], deconv_kernel=5,
 #             deconv_stride=[5, 6], dropout=0.6)
+model = EncoderRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
@@ -103,7 +106,7 @@ def tst_rnn(idx_test):
 
 
 def weight_init(m):
-    if isinstance(m, nn.Conv1d) or isinstance(m, nn.BatchNorm1d) \
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.BatchNorm2d) \
             or isinstance(m, nn.Linear) or isinstance(m, nn.GRU):
         m.reset_parameters()
 

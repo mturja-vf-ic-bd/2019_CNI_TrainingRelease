@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from scipy import signal
+from sklearn.decomposition import PCA
 
 
 def plot_signal(X):
@@ -53,6 +54,7 @@ def get_spectogram(sig):
     f, t, Sxx = signal.spectrogram(sig, fr, nperseg=5, noverlap=2)
     return f, t
 
+
 def plot_spectogram(sig):
     fr = 1
     f, t, Sxx = signal.spectrogram(sig, fr, nperseg=8, noverlap=3)
@@ -60,3 +62,11 @@ def plot_spectogram(sig):
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     plt.show()
+
+
+def pca_dim_red(data, n_components):
+    new_data = np.zeros((data.shape[0], data.shape[1], n_components))
+    pca = PCA(n_components=n_components)
+    for i in range(len(data)):
+        new_data[i] = pca.fit_transform(data[i])
+    return new_data
