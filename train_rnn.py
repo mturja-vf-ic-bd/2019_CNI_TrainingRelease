@@ -26,7 +26,7 @@ parser.add_argument('--lr', type=float, default=0.0001,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4,
                     help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=512,
+parser.add_argument('--hidden', type=int, default=256,
                     help='Number of hidden units.')
 parser.add_argument('--dropout', type=float, default=0.1,
                     help='Dropout rate (1 - keep probability).')
@@ -48,12 +48,12 @@ train_idx = torch.LongTensor(train_idx)
 test_idx = torch.LongTensor(test_idx)
 
 # Model and optimizer
-# model = NodeRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
+model = NodeRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
 # model = NodeConv([data.size(1), 30, 5, 1], kernel_size=5, dropout=args.dropout, sigmoid=True)
 # model = SAE(conv_seq=[data.size(1), 50, 20], conv_kernel=10,
 #             deconv_seq=[20, 50, data.size(1)], deconv_kernel=5,
 #             deconv_stride=[5, 6], dropout=0.6)
-model = EncoderRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
+# model = EncoderRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
@@ -78,7 +78,7 @@ def train(epoch, train_idx, test_idx):
     optimizer.step()
     if epoch%5 == 0:
         print('epoch: {},  loss: {}'.format(epoch, loss.data))
-    return tst_rnn(train_idx), tst_rnn(test_idx)
+    return tst_rnn(train_idx), tst_rnn(test_idx), loss.data
 
     # if not args.fastmode:
     #     # Evaluate validation set performance separately,
@@ -120,18 +120,21 @@ for i in range(len(test_idx)):
     model.apply(weight_init)
     acc_train = []
     acc_test = []
+    loss_list = []
     for epoch in range(args.epochs):
-        a, b = train(epoch, train_idx[i], test_idx[i])
+        a, b, loss = train(epoch, train_idx[i], test_idx[i])
         acc_train.append(a)
         acc_test.append(b)
+        loss_list.append(loss)
 
     acc.append(tst_rnn(test_idx[i]))
     plt.plot(acc_train, "r-")
     plt.plot(acc_test, "b")
+    plt.plot(loss_list)
     plt.show()
     acc_batch = acc_batch + np.array(acc_test)
 acc_batch /= len(test_idx)
-print(acc_batch)
+print(loss_list)
 plt.plot(acc_batch)
 plt.show()
 

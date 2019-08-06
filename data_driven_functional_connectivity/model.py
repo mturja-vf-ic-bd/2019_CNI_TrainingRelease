@@ -128,6 +128,7 @@ class NodeRNN(nn.Module):
             feat_dim = (feat_dim - kernel_size + 1) // kernel_size
         feat_dim = feat_dim - kernel_size + 1
         self.n_hidden = n_hidden
+        self.n_layer = n_layer
         self.conv1d = NodeConv(conv1d_layers, kernel_size, dropout)
         self.gru = nn.GRU(feat_dim, n_hidden, n_layer,
                           bidirectional=True, batch_first=True)
@@ -137,12 +138,16 @@ class NodeRNN(nn.Module):
             nn.BatchNorm1d(2 * n_hidden)
         )
         self.dense = nn.Sequential(nn.Linear(2 * n_hidden, 1) , nn.Sigmoid())
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, in_sig):
-        out = self.conv1d(in_sig)
+        out = self.dropout(in_sig)
+        out = self.conv1d(out)
         #out = out.view(out.size(0), -1, 1)
         out, h = self.gru(out)
-        out = torch.cat((out[:, -1, :self.n_hidden], out[:, 0, self.n_hidden:]), 1)
+        out = h.view(2, self.n_layer, h.size(1), h.size(2))
+        out = torch.cat((out[0, -1], out[1, -1]), 1)
+        # out = torch.cat((out[:, -1, :self.n_hidden], out[:, 0, self.n_hidden:]), 1)
         out = self.non_linear(out)
         out = self.dense(out)
         return out
