@@ -73,12 +73,12 @@ class SigAutoEncoder(nn.Module):
 
         for i in range(0, seq_len):
             if i == 0:
-                # inp = input[i+1:]
-                inp = input[:, -1].unsqueeze(1)
+                inp = input[:, i+1:]
+                # inp = input[:, 1:].unsqueeze(1)
                 _, hidden = self.decoder(inp, z.unsqueeze(0))
             else:
-                # inp = torch.cat((input[:, 0:i], input[:, i+1:]), 1)
-                inp = input[:, i-1].unsqueeze(1)
+                inp = torch.cat((input[:, 0:i], input[:, i+1:]), 1)
+                # inp = input[:, i+1:].unsqueeze(1)
                 _, hidden = self.decoder(inp, hidden)
             output = self.linear(hidden.squeeze())
             reconstructed[:, i] = output

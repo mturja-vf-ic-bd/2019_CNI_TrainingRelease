@@ -70,3 +70,17 @@ def pca_dim_red(data, n_components):
     for i in range(len(data)):
         new_data[i] = pca.fit_transform(data[i])
     return new_data
+
+
+def plot_orig_recon(orig, recon):
+    plt_row, plt_col = orig.shape
+    j = 1
+    for i in range(plt_row):
+        plt.subplot(plt_row, 2, j)
+        plt.ylim(-12, 12)
+        plt.plot(orig[i, :], "b")
+        plt.subplot(plt_row, 2, j + 1)
+        plt.ylim(-12, 12)
+        plt.plot(recon[i, :], "r")
+        j = j + 2
+    plt.show()
