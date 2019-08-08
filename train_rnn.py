@@ -41,7 +41,7 @@ torch.manual_seed(args.seed)
 
 # Load data
 data, label, train_idx, test_idx = load_data('aal')
-data = pca_dim_red(data, 30)
+data = pca_dim_red(data.swapaxes(1, 2), 30).swapaxes(1, 2)
 data = torch.FloatTensor(data).unsqueeze(1)
 label = torch.FloatTensor(label).view(-1, 1)
 train_idx = torch.LongTensor(train_idx)
@@ -81,7 +81,7 @@ def train(epoch, train_idx, test_idx):
     # loss.backward()
     optimizer.step()
 
-    plot_signal(output.detach().numpy()[0:3])
+    # plot_signal(output.detach().numpy()[0:3])
     if epoch%5 == 0:
         print('epoch: {},  loss: {}'.format(epoch, loss.data))
     # return tst_rnn(train_idx), tst_rnn(test_idx), loss.data

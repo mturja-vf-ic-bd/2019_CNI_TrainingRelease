@@ -63,6 +63,7 @@ class SigAutoEncoder(nn.Module):
         self.decoder = DecoderRNN(input_dim, hidden_dec, n_layer=1, dropout=dropout)
         self.linear = nn.Linear(hidden_dec, input_dim)
 
+
     def forward(self, input):
         batch_size = input.size(0)
         seq_len = input.size(2)
