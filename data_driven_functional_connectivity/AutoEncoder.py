@@ -7,11 +7,15 @@ class EncoderRNN(nn.Module):
     def __init__(self, feat_dim, conv1d_layers, n_hidden, n_layer,
                  kernel_size, dropout):
         super(EncoderRNN, self).__init__()
-        for i in range(len(conv1d_layers) - 1):
-            feat_dim = (feat_dim - kernel_size + 1) // kernel_size
-        feat_dim = feat_dim - kernel_size + 1
+        if conv1d_layers is not None:
+            for i in range(len(conv1d_layers) - 1):
+                feat_dim = (feat_dim - kernel_size + 1) // kernel_size
+            feat_dim = feat_dim - kernel_size + 1
         self.n_hidden = n_hidden
-        self.conv1d = NodeConv(conv1d_layers, kernel_size, dropout)
+        if conv1d_layers is not None:
+            self.conv1d = NodeConv(conv1d_layers, kernel_size, dropout)
+        else:
+            self.conv1d = None
         self.gru_mu = nn.GRU(feat_dim, n_hidden, n_layer,
                           bidirectional=True, batch_first=True)
         self.gru_sigma = nn.GRU(feat_dim, n_hidden, n_layer,
@@ -25,7 +29,9 @@ class EncoderRNN(nn.Module):
 
     def forward(self, in_sig):
         out = self.dropout(in_sig)
-        out = self.conv1d(out)
+        if self.conv1d is not None:
+            out = self.conv1d(out)
+        out = out.squeeze()
         out_mu, h_mu = self.gru_mu(out)
         out_mu = torch.cat((out_mu[:, -1, :self.n_hidden], out_mu[:, 0, self.n_hidden:]), 1)
 
@@ -56,12 +62,13 @@ class DecoderRNN(nn.Module):
 
 
 class SigAutoEncoder(nn.Module):
-    def __init__(self, input_dim, conv1_layers, kernel_size, hidden_enc, hidden_dec, dropout):
+    def __init__(self, input_dim, conv1_layers, kernel_size, hidden_enc, hidden_dec, dropout, tch_sup):
         super(SigAutoEncoder, self).__init__()
         self.input_dim = input_dim
         self.encoder = EncoderRNN(input_dim, conv1_layers, hidden_enc, n_layer=1, kernel_size=kernel_size, dropout=dropout)
         self.decoder = DecoderRNN(input_dim, hidden_dec, n_layer=1, dropout=dropout)
         self.linear = nn.Linear(hidden_dec, input_dim)
+        self.tch_sup = tch_sup
 
 
     def forward(self, input):
@@ -73,14 +80,20 @@ class SigAutoEncoder(nn.Module):
 
         for i in range(0, seq_len):
             if i == 0:
-                inp = input[:, i+1:]
-                # inp = input[:, 1:].unsqueeze(1)
-                _, hidden = self.decoder(inp, z.unsqueeze(0))
+                if self.tch_sup:
+                    # inp = input[:, 1:].unsqueeze(1)
+                    inp = input[:, 1:]
+                else:
+                    inp = torch.zeros(batch_size, 1, self.input_dim).cuda()
+                out, hidden = self.decoder(inp, z.unsqueeze(0))
             else:
-                inp = torch.cat((input[:, 0:i], input[:, i+1:]), 1)
-                # inp = input[:, i+1:].unsqueeze(1)
-                _, hidden = self.decoder(inp, hidden)
-            output = self.linear(hidden.squeeze())
+                if self.tch_sup:
+                    inp = torch.cat((input[:, 0:i], input[:, i + 1:]), 1)
+                    # inp = input[:, i-1].unsqueeze(1)
+                else:
+                    inp = self.linear(out)
+                out, hidden = self.decoder(inp, hidden)
+            output = self.linear(hidden)
             reconstructed[:, i] = output
         return reconstructed, mu, logvar
         # input = torch.zeros()

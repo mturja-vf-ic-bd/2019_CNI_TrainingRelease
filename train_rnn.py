@@ -20,7 +20,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=200,
+parser.add_argument('--epochs', type=int, default=150,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001,
                     help='Initial learning rate.')
@@ -54,7 +54,7 @@ test_idx = torch.LongTensor(test_idx)
 #             deconv_seq=[20, 50, data.size(1)], deconv_kernel=5,
 #             deconv_stride=[5, 6], dropout=0.6)
 # model = EncoderRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
-model = SigAutoEncoder(data.size(3), [5, 1], args.kernel_size, args.hidden, args.hidden*2, args.dropout)
+model = SigAutoEncoder(data.size(3), None, args.kernel_size, args.hidden, args.hidden*2, args.dropout, True)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
@@ -76,7 +76,7 @@ def train(epoch, train_idx, test_idx):
     output, mu, logvar = model(input)
 
     loss_fn = torch.nn.MSELoss()
-    loss = 1000*loss_fn(output, input) - 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    loss = 100*loss_fn(output, input.squeeze()) - 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # loss_fn = torch.nn.BCELoss()
     # loss = loss_fn(output, label[train_idx])
     loss.backward()
@@ -85,8 +85,10 @@ def train(epoch, train_idx, test_idx):
     # plot_signal(output.detach().numpy()[0:3])
     if epoch%5 == 0:
         print('epoch: {},  loss: {}'.format(epoch, loss.data))
+
+    tst_loss, _ = tst_rnn(test_idx)
     # return tst_rnn(train_idx), tst_rnn(test_idx), loss.data
-    return loss.data, output.data
+    return loss.data, output.data, tst_loss
 
     # if not args.fastmode:
     #     # Evaluate validation set performance separately,
@@ -105,12 +107,16 @@ def train(epoch, train_idx, test_idx):
 
 
 def tst_rnn(idx_test):
+    input = data[idx_test]
     model.eval()
-    output = model(data[idx_test])
-    acc = accuracy(output.cpu().data, label[idx_test].cpu().data)
-    print("Test set results:",
-          "accuracy= {:.4f}".format(acc))
-    return acc
+    output, mu, logvar = model(input)
+    loss_fn = torch.nn.MSELoss()
+    loss = 100 * loss_fn(output, input.squeeze()) - 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return loss.data, output.data
+    # acc = accuracy(output.cpu().data, label[idx_test].cpu().data)
+    # print("Test set results:",
+    #       "accuracy= {:.4f}".format(acc))
+    # return acc
 
 
 def weight_init(m):
@@ -129,12 +135,14 @@ for i in range(len(test_idx)):
     acc_train = []
     acc_test = []
     loss_list = []
+    test_loss_list = []
     for epoch in range(args.epochs):
         # a, b, loss = train(epoch, train_idx[i], test_idx[i])
-        loss, recon = train(epoch, train_idx[i], test_idx[i])
+        loss, recon, test_loss = train(epoch, train_idx[i], test_idx[i])
         # acc_train.append(a)
         # acc_test.append(b)
         loss_list.append(loss)
+        test_loss_list.append(test_loss)
 
     # acc.append(tst_rnn(test_idx[i]))
     # plt.plot(acc_train, "r-")
@@ -142,9 +150,14 @@ for i in range(len(test_idx)):
 
     recon = recon.cpu().numpy()
     orig = data[train_idx[i]].squeeze().cpu().numpy()
-    plt.plot(loss_list)
+    plt.plot(loss_list, "b")
+    plt.plot(test_loss_list, "r")
     plt.show()
     plot_orig_recon(orig[0, 3:7], recon[0, 3:7])
+    recon_loss, tst_recon = tst_rnn(test_idx[i])
+    orig_tst = data[test_idx[i]].squeeze().cpu().numpy()
+    tst_recon = tst_recon.cpu().numpy()
+    plot_orig_recon(orig_tst[0, 3:7], tst_recon[0, 3:7])
     # acc_batch = acc_batch + np.array(acc_test)
 # acc_batch /= len(test_idx)
 print(loss_list)

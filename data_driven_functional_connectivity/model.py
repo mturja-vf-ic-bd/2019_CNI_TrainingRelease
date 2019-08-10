@@ -69,7 +69,7 @@ class NodeConv(nn.Module):
                 out = layer(out)
         if self.sigm:
             out = self.sigmoid(out.view(-1, 1))
-        return out.squeeze()
+        return out
 
     def reset_parameters(self):
         for layer in self.conv1d:
