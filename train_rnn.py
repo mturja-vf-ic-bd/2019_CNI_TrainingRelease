@@ -20,7 +20,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=150,
+parser.add_argument('--epochs', type=int, default=200,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001,
                     help='Initial learning rate.')
@@ -54,7 +54,7 @@ test_idx = torch.LongTensor(test_idx)
 #             deconv_seq=[20, 50, data.size(1)], deconv_kernel=5,
 #             deconv_stride=[5, 6], dropout=0.6)
 # model = EncoderRNN(data.size(3), [5, 1], args.hidden, 1, 2, args.dropout)
-model = SigAutoEncoder(data.size(3), None, args.kernel_size, args.hidden, args.hidden*2, args.dropout, True)
+model = SigAutoEncoder(data.size(3), None, args.kernel_size, args.hidden, args.hidden*2, args.dropout, False)
 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
@@ -76,7 +76,7 @@ def train(epoch, train_idx, test_idx):
     output, mu, logvar = model(input)
 
     loss_fn = torch.nn.MSELoss()
-    loss = 100*loss_fn(output, input.squeeze()) - 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    loss = 200*loss_fn(output, input.squeeze()) - torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # loss_fn = torch.nn.BCELoss()
     # loss = loss_fn(output, label[train_idx])
     loss.backward()
@@ -111,7 +111,7 @@ def tst_rnn(idx_test):
     model.eval()
     output, mu, logvar = model(input)
     loss_fn = torch.nn.MSELoss()
-    loss = 100 * loss_fn(output, input.squeeze()) - 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    loss = 200 * loss_fn(output, input.squeeze()) - torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return loss.data, output.data
     # acc = accuracy(output.cpu().data, label[idx_test].cpu().data)
     # print("Test set results:",
